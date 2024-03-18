@@ -3,7 +3,6 @@ Test the accuracy of similarity estimation using data sketches
 Must be using Python 2 as pyhash does not support Python 3
 '''
 import time, logging, random, struct
-import pyhash
 import numpy as np
 from datasketch.hyperloglog import HyperLogLog
 from datasketch.minhash import MinHash
@@ -46,13 +45,12 @@ def _b_bit_minhash_jaccard(m1, m2, b):
 
 def _run_minhash(A, B, data, seed, num_perm, b):
     (a_start, a_end), (b_start, b_end) = A, B
-    hasher = pyhash.murmur3_32()
     m1 = MinHash(num_perm=num_perm, hashobj=Hash)
     m2 = MinHash(num_perm=num_perm, hashobj=Hash)
-    for i in xrange(a_start, a_end):
-        m1.update(hasher(data[i], seed=seed))
-    for i in xrange(b_start, b_end):
-        m2.update(hasher(data[i], seed=seed))
+    for i in range(a_start, a_end):
+        m1.update(data[i])
+    for i in range(b_start, b_end):
+        m2.update(data[i])
     return [m1.jaccard(m2), _b_bit_minhash_jaccard(m1, m2, b)]
 
 def _run_hyperloglog(A, B, data, seed, p):

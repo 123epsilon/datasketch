@@ -3,7 +3,6 @@ Benchmarking the performance and accuracy of b-bi MinHash.
 '''
 import time, logging, random
 logging.basicConfig(level=logging.INFO)
-import pyhash
 import numpy as np
 from datasketch.minhash import MinHash
 from datasketch.b_bit_minhash import bBitMinHash
@@ -12,13 +11,12 @@ from similarity_benchmark import _get_exact, _gen_data,\
 
 def _run_minhash(A, B, data, seed, bs, num_perm):
     (a_start, a_end), (b_start, b_end) = A, B
-    hasher = pyhash.murmur3_32()
-    m1 = MinHash(num_perm=num_perm, hashobj=Hash)
-    m2 = MinHash(num_perm=num_perm, hashobj=Hash)
-    for i in xrange(a_start, a_end):
-        m1.update(hasher(data[i], seed=seed))
-    for i in xrange(b_start, b_end):
-        m2.update(hasher(data[i], seed=seed))
+    m1 = MinHash(num_perm=num_perm)
+    m2 = MinHash(num_perm=num_perm)
+    for i in range(a_start, a_end):
+        m1.update(data[i])
+    for i in range(b_start, b_end):
+        m2.update(data[i])
     return [m1.jaccard(m2)] + \
             [_b_bit_minhash_jaccard(m1, m2, b) for b in bs]
 
@@ -26,7 +24,7 @@ def _run_test(A, B, data, n, bs, num_perm):
     logging.info("Run tests with A = (%d, %d), B = (%d, %d), n = %d"
             % (A[0], A[1], B[0], B[1], n))
     runs = np.array([_run_minhash(A, B, data, i, bs, num_perm)
-        for i in xrange(n)]).T
+        for i in range(n)]).T
     return runs
 
 def run_full_tests(attr_pairs, data, n, bs, num_perm):
@@ -68,7 +66,8 @@ if __name__ == "__main__":
                   ((0, 3500), (1500, 5000)),
                   ((0, 4500), (500, 5000))]
     num_perm = 128
-    bs = [1, 2, 3]
+    # bs = [1, 2, 3, 6, 8, 12, 16]
+    bs = [8,12,16]
     n = 100
     save = "b_bit_minhash_benchmark.png"
     bins = [i*0.02 for i in range(51)]
