@@ -1,7 +1,7 @@
 """
 Benchmarking the performance and accuracy of b-bit MinHash.
 """
-import time, logging
+import time, logging, tracemalloc
 from numpy import random
 import matplotlib
 
@@ -19,6 +19,7 @@ int_bytes = lambda x: ("a-%d-%d" % (x, x)).encode("utf-8")
 
 def run_perf(card, num_perm, num_bits):
     dur = 0
+    peak_mem = 0
     n_trials = 5
     for i in range(n_trials):
         m = MinHash(num_perm=num_perm)
@@ -27,11 +28,15 @@ def run_perf(card, num_perm, num_bits):
         for i in range(card):
             m.update(int_bytes(i))
 
+        tracemalloc.start(25)
         b = bBitMinHash(m, num_bits)
+        curr_size, peak_size = tracemalloc.get_traced_memory()
         duration = time.perf_counter() - start
         dur += duration
+        peak_mem += peak_size
+        tracemalloc.reset_peak()
         logging.info("Digested %d hashes in %.4f sec" % (card, duration))
-    return dur / n_trials
+    return (dur / n_trials, peak_mem / n_trials)
 
 
 def _run_acc(size, seed, num_perm, num_bits):
@@ -74,9 +79,13 @@ output = "b_bit_minhash_benchmark.png"
 logging.info("> Running performance tests")
 card = 5000
 perf_times = {}
+peak_mems = {}
 for b in num_bits:
-    run_times = [run_perf(card, n, b) for n in num_perms]
+    perf_results = [run_perf(card, n, b) for n in num_perms]
+    run_times = [p[0] for p in perf_results]
+    peak_mem = [p[1] for p in perf_results]
     perf_times[b] = run_times
+    peak_mems[b] = peak_mem
 
 
 logging.info("> Running accuracy tests")
@@ -87,7 +96,17 @@ for b in num_bits:
     errors[b] = errs
 
 logging.info("> Plotting result")
-fig, axe = plt.subplots(1, 2, sharex=True, figsize=(10, 4))
+fig, axe = plt.subplots(1, 3, sharex=True, figsize=(10, 4))
+ax = axe[2]
+for i, b in enumerate(num_bits):
+    ax.plot(
+        num_perms, peak_mems[b], marker="+", color=bit_colors[i], label=f"{b} bits"
+    )
+ax.set_xlabel("Number of permutation functions")
+ax.set_ylabel("Peak Memory Usage (bytes)")
+ax.set_title("bBitMinHash Memory Performance")
+ax.grid()
+ax.legend()
 ax = axe[1]
 for i, b in enumerate(num_bits):
     ax.plot(
@@ -95,7 +114,7 @@ for i, b in enumerate(num_bits):
     )
 ax.set_xlabel("Number of permutation functions")
 ax.set_ylabel("Running time (sec)")
-ax.set_title("MinHash performance")
+ax.set_title("bBitMinHash Runtime Performance")
 ax.grid()
 ax.legend()
 ax = axe[0]
@@ -103,7 +122,7 @@ for i, b in enumerate(num_bits):
     ax.plot(num_perms, errors[b], marker="+", color=bit_colors[i], label=f"{b} bits")
 ax.set_xlabel("Number of permutation functions")
 ax.set_ylabel("Absolute error in Jaccard estimation")
-ax.set_title("MinHash accuracy")
+ax.set_title("bBitMinHash Accuracy")
 ax.grid()
 ax.legend()
 
