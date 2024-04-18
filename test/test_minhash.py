@@ -133,15 +133,8 @@ class TestbBitMinHash(unittest.TestCase):
         self.m.update(32)
 
     def test_init(self):
-        bm = bBitMinHash(self.m, 1)
-        bm = bBitMinHash(self.m, 2)
-        bm = bBitMinHash(self.m, 3)
-        bm = bBitMinHash(self.m, 4)
-        bm = bBitMinHash(self.m, 5)
         bm = bBitMinHash(self.m, 8)
-        bm = bBitMinHash(self.m, 12)
         bm = bBitMinHash(self.m, 16)
-        bm = bBitMinHash(self.m, 27)
         bm = bBitMinHash(self.m, 32)
 
     def test_eq(self):
@@ -193,7 +186,7 @@ class TestbBitMinHash(unittest.TestCase):
             m.update(98)
             m.update(123218)
             m.update(32)
-            for b in [1, 2, 3, 9, 27, 32]:
+            for b in [8, 16, 32]:
                 bm = bBitMinHash(m, b)
                 bm2 = pickle.loads(pickle.dumps(bm))
                 self.assertEqual(bm, bm2)

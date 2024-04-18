@@ -24,16 +24,15 @@ class bBitMinHash(object):
     # each block as uint64
     _serial_fmt_block = 'Q'
 
-    def __init__(self, minhash, b=1, r=0.0):
+    def __init__(self, minhash, b=8, r=0.0):
         '''
         Initialize a b-bit MinHash given an existing full MinHash
         object and parameter b - the number of bits to store for
         each minimum hashed values in the MinHash object.
         '''
         b = int(b)
+        assert b in [8, 16, 32], "Invalid value for b, must be one of {8, 16, 32}"
         r = float(r)
-        if b > 32 or b < 0:
-            raise ValueError("b must be an integer in [0, 32]")
         if r > 1.0:
             raise ValueError("r must be a float in [0.0, 1.0]")
         bmask = (1 << b) - 1
