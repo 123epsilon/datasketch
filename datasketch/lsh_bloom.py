@@ -1,11 +1,13 @@
 from __future__ import annotations
 from typing import Callable, List, Optional, Tuple
 from datasketch.minhash import MinHash
-from datasketch.b_bit_minhash import bBitMinHash
+# from datasketch.b_bit_minhash import bBitMinHash
 from scipy.integrate import quad as integrate
 import numpy as np
 from pybloomfilter import BloomFilter
 import os
+# rust-python extension
+import pyhash
 
 _mersenne_prime = np.uint64((1 << 61) - 1)
 
@@ -82,24 +84,34 @@ class BloomTable:
 		if not len(hashvalues) == self.r:
 			raise RuntimeError(f"Invalid length for indices, {len(hashvalues)}, expected {self.r} items")
 		
+	def hash(self, hashvalues: List[int]) -> int:
+		self.assert_size(hashvalues)
+		# https://en.wikipedia.org/wiki/Universal_hashing#Hashing_vectors
+		# as the hashvalues are the result of a universal hashing function, their sum is also a univeral hash function
+		# the line below implements:
+		# 	x = sum(hashvalues) % _mersenne_prime
+		# we must do it outside of numpy because of arithmetic overflow
+		# when adding large 64-bit integers in numpy, we need 128 bit precision
+		# to do this reduction operation
+		# print(hashvalues.dtype)
+		return pyhash.hash(hashvalues)
+		# x = sum(hashvalues.astype(np.uint64)) % _mersenne_prime
+		# return x
+
 	def insert(self, hashvalues: List[int]) -> None:
 		"""
 		Takes as input the indices for a single band and inserts them into the corresponding bit arrays
 		"""
-		self.assert_size(hashvalues)
-		# https://en.wikipedia.org/wiki/Universal_hashing#Hashing_vectors
-		# as the hashvalues are the result of a universal hashing function, their sum is also a univeral hash function
-		x = sum(hashvalues) % _mersenne_prime
-		self.bloom_filter.add(x)#.tobytes())
+		x = self.hash(hashvalues)
+		self.bloom_filter.add(x)
 
 	def query(self, hashvalues: List[int]) -> bool:
 		"""
 		Takes as input the indices for a single band and queries them against the corresponding arrays
 		returns True if the each query returns True, otherwise returns False
 		"""
-		self.assert_size(hashvalues)
-		x = sum(hashvalues) % _mersenne_prime
-		return x in self.bloom_filter #self.bloom_filter.check(x.tobytes())
+		x = self.hash(hashvalues)
+		return x in self.bloom_filter
 
 
 class MinHashLSHBloom(object):
@@ -201,7 +213,7 @@ class MinHashLSHBloom(object):
 		threshold: float = 0.9,
 		num_perm: int = 128,
 		weights: Tuple[float, float] = (0.5, 0.5),
-		num_bits: int = 32, # size in bits of each hashvalue, minhashes will be truncated to this size via bBitMinHashing
+		# num_bits: int = 32, # size in bits of each hashvalue, minhashes will be truncated to this size via bBitMinHashing
 		n: int = None,
 		fp: float = None,
 		save_dir: str = None, # place to save bloom filter index, if it is filled we'll load the bloom filters from there
@@ -210,7 +222,7 @@ class MinHashLSHBloom(object):
 		hashfunc: Optional[Callable[[bytes], bytes]] = None,
 	) -> None:
 		self._buffer_size = 50000
-		self.num_bits = num_bits
+		# self.num_bits = num_bits
 		if threshold > 1.0 or threshold < 0.0:
 			raise ValueError("threshold must be in [0.0, 1.0]")
 		if num_perm < 2:
@@ -247,7 +259,7 @@ class MinHashLSHBloom(object):
 		# create a bitarray for each signature row
 		if save_dir is not None:
 			os.makedirs(save_dir, exist_ok=True)
-		hashrange = 2**self.num_bits
+		hashrange = 2**64#self.num_bits
 		max_size = self.r * hashrange
 		self.hashtables = [
 			BloomTable(
@@ -292,8 +304,8 @@ class MinHashLSHBloom(object):
 		
 		# truncate minhash to desired bit width
 		trunc_minhash = minhash
-		if self.num_bits <= 32:
-			trunc_minhash = bBitMinHash(minhash=minhash, b=self.num_bits)
+		# if self.num_bits <= 32:
+		# 	trunc_minhash = bBitMinHash(minhash=minhash, b=self.num_bits)
 		Hs = [trunc_minhash.hashvalues[start:end] for start, end in self.hashranges]
 
 		for H, hashtable in zip(Hs, self.hashtables):
@@ -362,8 +374,8 @@ class MinHashLSHBloom(object):
 			)
 		# if we match in any band, this is a candidate pair
 		trunc_minhash = minhash
-		if self.num_bits <= 32:
-			trunc_minhash = bBitMinHash(minhash=minhash, b=self.num_bits)
+		# if self.num_bits <= 32:
+		# 	trunc_minhash = bBitMinHash(minhash=minhash, b=self.num_bits)
 		for (start, end), hashtable in zip(self.hashranges, self.hashtables):
 			H = trunc_minhash.hashvalues[start:end]
 			collision = hashtable.query(H)
