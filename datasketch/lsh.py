@@ -170,8 +170,11 @@ class MinHashLSH(object):
             self.b, self.r = _optimal_param(
                 threshold, num_perm, false_positive_weight, false_negative_weight
             )
-        if self.b < 2:
-            raise ValueError("The number of bands are too small (b < 2)")
+
+        # TODO(ARHAM) UNDO THIS LATER, COMMENTING THIS OUT TO ENABLE T=1.0 TESTING
+		# THIS LINE IS ONLY NECESSARY FOR BATCHED MINHASH COMPUTATIONS
+        # if self.b < 2:
+        #     raise ValueError("The number of bands are too small (b < 2)")
 
         self.prepickle = (
             storage_config["type"] == "redis" if not prepickle else prepickle

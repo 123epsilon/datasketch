@@ -55,7 +55,7 @@ class BloomTable:
 	"""
 	Interface to a Bloom Filter meant to model a single band of the signature matrix
 	"""
-	def __init__(self, item_count: int, fp: float, num_arrays: int, fname: str = None, max_size: int = None, use_mmap: bool = False):
+	def __init__(self, item_count: int, fp: float, num_arrays: int, fname: str = None, max_size: int = None, use_mmap: bool = True):
 		self.r = num_arrays
 		self.fname = fname
 		self.use_mmap = use_mmap
@@ -67,17 +67,19 @@ class BloomTable:
 				self.bloom_filter = BloomFilter.open(fname)
 			else:
 				b64_repr = read_base64(fname)
-				print(type(b64_repr), b64_repr)
 				self.bloom_filter = BloomFilter.from_base64("/tmp/temp.bf", b64_repr)
 		else:
-			self.bloom_filter = BloomFilter(capacity=item_count, error_rate=fp, filename=fname)
+			self.bloom_filter = BloomFilter(
+				capacity=item_count, 
+				error_rate=fp, 
+				filename=self.fname if self.use_mmap else None
+			)
 
 	def sync(self):
 		if self.use_mmap:
 			self.bloom_filter.sync()
 		else:
 			b64_repr = self.bloom_filter.to_base64()
-			print(type(b64_repr), b64_repr)
 			write_base64(self.fname, b64_repr)
 
 	def assert_size(self, hashvalues: List[int]):
@@ -95,7 +97,8 @@ class BloomTable:
 		# to do this reduction operation
 		# print(hashvalues.dtype)
 		return pyhash.hash(hashvalues)
-		# x = sum(hashvalues.astype(np.uint64)) % _mersenne_prime
+		# mp = np.uint64((1 << 31) - 1)
+		# x = np.sum(hashvalues) % mp #% _mersenne_prime
 		# return x
 
 	def insert(self, hashvalues: List[int]) -> None:
@@ -217,7 +220,7 @@ class MinHashLSHBloom(object):
 		n: int = None,
 		fp: float = None,
 		save_dir: str = None, # place to save bloom filter index, if it is filled we'll load the bloom filters from there
-		use_mmap: bool = False,
+		use_mmap: bool = True,
 		params: Optional[Tuple[int, int]] = None,
 		hashfunc: Optional[Callable[[bytes], bytes]] = None,
 	) -> None:
@@ -247,8 +250,11 @@ class MinHashLSHBloom(object):
 			self.b, self.r = _optimal_param(
 				threshold, num_perm, false_positive_weight, false_negative_weight
 			)
-		if self.b < 2:
-			raise ValueError("The number of bands are too small (b < 2)")
+
+		# TODO(ARHAM) UNDO THIS LATER, COMMENTING THIS OUT TO ENABLE T=1.0 TESTING
+		# THIS LINE IS ONLY NECESSARY FOR BATCHED MINHASH COMPUTATIONS
+		# if self.b < 2:
+		# 	raise ValueError("The number of bands are too small (b < 2)")
 
 		self.hashfunc = hashfunc
 		if hashfunc:
@@ -260,7 +266,7 @@ class MinHashLSHBloom(object):
 		if save_dir is not None:
 			os.makedirs(save_dir, exist_ok=True)
 		hashrange = 2**64#self.num_bits
-		max_size = self.r * hashrange
+		max_size = None#self.r * hashrange
 		self.hashtables = [
 			BloomTable(
 					item_count=n, 
