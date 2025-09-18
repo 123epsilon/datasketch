@@ -50,7 +50,9 @@ setup(
     install_requires=[
         'numpy>=1.11',
         'scipy>=1.0.0',
-        'pybloomfiltermmap3',
+        'pybloomfilter3>=0.7.2 ; python_version>="3.9"',
+        'pybloomfilter3==0.7.1 ; python_version<"3.9"',
+        'rust_pyhash @ git+https://github.com/123epsilon/rust-pyhash.git'
     ],
     extras_require={
         'cassandra': [
